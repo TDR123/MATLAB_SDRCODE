@@ -1,0 +1,56 @@
+function phase_est=carrier_recovery(signal_sampled,alpha,beta,type)
+if type~="QPSK"&&type~="16QAM"
+    msgbox("参数 ")
+    return;
+end
+
+switch type
+    case "QPSK"
+% alpha = 0.01;  % 环路滤波器参数
+% beta = 0.001;
+phase_est = 0;
+phase_history = zeros(length(signal_sampled), 1);
+
+signal_derotated = zeros(size(signal_sampled));
+
+% 对每个符号进行相位跟踪
+for n = 1:length(signal_sampled)
+    % 相位旋转补偿
+    signal_derotated(n) = signal_sampled(n) * exp(-1j*phase_est);
+
+    % Costas环相位误差检测（QPSK）
+    % 硬判决辅助的相位误差检测
+    if n > 10  % 等待环路稳定
+        % 硬判决
+        symbol_hard = sign(real(signal_derotated(n))) + 1j*sign(imag(signal_derotated(n)));
+        symbol_hard = symbol_hard / sqrt(2);
+
+        % 相位误差：Im(conj(判决)*接收)
+        phase_error = imag(signal_derotated(n) * conj(symbol_hard));
+
+        % 更新相位估计
+        phase_est = phase_est + alpha * phase_error + beta * sum(phase_history(max(1,n-10):n));
+    end
+
+    phase_history(n) = phase_est;
+
+    % 保持相位在[-pi, pi]范围内
+    phase_est = mod(phase_est + pi, 2*pi) - pi;
+end
+% 补偿载波相位偏差
+b=[];
+for n = 1:length(signal_sampled)
+    signal_derotated(n) = signal_sampled(n) * exp(-1j*phase_est);
+
+    % 相位误差检测
+    symbol_hard = sign(real(signal_derotated(n))) + 1j*sign(imag(signal_derotated(n)));
+    phase_error = imag(signal_derotated(n) * conj(symbol_hard));
+
+    % 更新相位估计
+    phase_est = phase_est + alpha * phase_error;
+end
+    case "16QAM"
+
+end
+
+end
